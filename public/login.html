@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+</head>
+<body>
+    <!--Page heading-->
+    <h1>Login Page</h1>
+
+    <!--Login form-->
+    <form id="loginForm">
+        <!--Username field-->
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" required>
+        <br><br>
+        <!--Password field-->
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required>
+        <br><br>
+        <!--Login button that triggers login() when clicked-->
+        <button type="button" onclick="login()">Login</button>
+    </form>
+
+    <script>
+        //Handles login
+        function login() {
+            //Gets username and password from fields
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        //Sends login data to server via fetch
+        fetch('/login', {
+            method: 'POST', //It is POST for secure sending
+            headers: {
+               'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            //Contains username and password in URL format
+            body: `username=${username}&password=${password}`,
+        })
+        .then(response => response.json()) //Converts server response to JSON
+        .then(data => {
+            //Checks if login is a success
+            if (data.success) {
+               alert('You have permissions to enter.');
+            } else {
+               alert('You do not have permissions to enter.');
+            }
+        })
+        .catch(error => {
+            //This handles network or server errors
+            console.error('Error:', error);
+        });
+        }
+    </script>
+</body>
+</html>
