@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Demographic Information</title>
+<link rel="icon" href="data:,">
+<style>
+    body { font-family: times, arial; }
+    input, select, button { display: block; margin: 5px 0; }
+    .error { color: red; font-size: 14px; }
+    li { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+
+<h2>Demographic Form</h2>
+<form id="demographicForm">
+    <input type="hidden" id="recordId">
+    <input placeholder="First Name" id="first_name" required minlength="2">
+    <small id="firstNameError" class="error"></small>
+    <br>
+
+    <input placeholder="Last Name" id="last_name" required minlength="2">
+    <small id="lastNameError" class="error"></small>
+    <br>
+
+    <input type="email" placeholder="Email" id="email" required>
+    <small id="emailError" class="error"></small>
+    <br>
+
+    <input type="number" placeholder="Age (18-100)" id="age" min="18" max="100">
+    <small id="ageError" class="error"></small>
+    <br>
+
+    <select id="gender">
+        <option value="">Select Gender</option>
+        <option>Male</option>
+        <option>Female</option>
+        <option>Other</option>
+    </select>
+    <br>
+
+    <input placeholder="City" id="city" required>
+    <small id="cityError" class="error"></small>
+
+    <button type="submit">Save</button>
+    <button type="button" id="cancelUpdate" style="display:none;">Cancel</button>
+</form>
+
+<h3>Saved Records</h3>
+<ul id="records"></ul>
+
+<script>
+const form = document.getElementById("demographicForm");
+const recordsList = document.getElementById("records");
+const cancelBtn = document.getElementById("cancelUpdate");
+let editingId = null;
+
+// Validation
+function validate(data) {
+    if(data.firstName.length<2 || data.lastName.length<2) return false;
+    if(!data.email.includes("@") || data.age<18 || data.age>100) return false;
+    if(!data.city) return false;
+    return true;
+}
+
+// Fetch and render records
+async function fetchRecords() {
+    const res = await fetch("/api/demographics");
+    const data = await res.json();
+    recordsList.innerHTML = "";
+    data.forEach(r => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+            ${r.firstName} ${r.lastName} | ${r.email} | Age: ${r.age} | ${r.gender} | ${r.city}
+            <button onclick="editRecord(${r.id})">Edit</button>
+            <button onclick="deleteRecord(${r.id})">Delete</button>
+        `;
+        recordsList.appendChild(li);
+    });
+}
+
+// Edit record
+window.editRecord = async (id) => {
+    const res = await fetch("/api/demographics");
+    const data = await res.json();
+    const record = data.find(r=>r.id===id);
+    if(record){
+        editingId = id;
+        document.getElementById("first_name").value = record.firstName;
+        document.getElementById("last_name").value = record.lastName;
+        document.getElementById("email").value = record.email;
+        document.getElementById("age").value = record.age;
+        document.getElementById("gender").value = record.gender;
+        document.getElementById("city").value = record.city;
+        cancelBtn.style.display="inline";
+    }
+}
+
+// Cancel editing
+cancelBtn.addEventListener("click", ()=>{
+    form.reset();
+    editingId=null;
+    cancelBtn.style.display="none";
+});
+
+// Delete record
+window.deleteRecord = async (id) => {
+    if(confirm("Delete this record?")){
+        await fetch(`/api/demographics/${id}`, {method:"DELETE"});
+        fetchRecords();
+    }
+}
+
+// Submit form
+form.addEventListener("submit", async (e)=>{
+    e.preventDefault();
+
+    const data = {
+        firstName: document.getElementById("first_name").value.trim(),
+        lastName: document.getElementById("last_name").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        age: parseInt(document.getElementById("age").value),
+        gender: document.getElementById("gender").value,
+        city: document.getElementById("city").value.trim()
+    };
+
+    // Clear errors
+    document.getElementById("firstNameError").textContent = "";
+    document.getElementById("lastNameError").textContent = "";
+    document.getElementById("emailError").textContent = "";
+    document.getElementById("ageError").textContent = "";
+    document.getElementById("cityError").textContent = "";
+
+    if(!validate(data)) return alert("Please fill all fields correctly!");
+
+    if(editingId){
+        await fetch(`/api/demographics/${editingId}`, {
+            method:"PUT",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify(data)
+        });
+        editingId=null;
+        cancelBtn.style.display="none";
+    } else {
+        await fetch("/api/demographics", {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify(data)
+        });
+    }
+
+    form.reset();
+    fetchRecords();
+});
+
+// Initial load
+fetchRecords();
+</script>
+
+</body>
+</html>

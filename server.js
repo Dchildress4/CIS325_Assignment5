@@ -1,26 +1,82 @@
-const express = require('express');
+const express = require("express");
+const path = require("path");
+const sqlite3 = require("sqlite3").verbose();
+
 const app = express();
 const PORT = 3000;
 
-app.use(express.static('public'));
+// Connect to SQLite database
+const db = new sqlite3.Database("./database/demographics.db", (err) => {
+    if (err) {
+        console.error(err.message);
+    } else {
+        console.log("Connected to SQLite database.");
+    }
+});
+
+// Create the demographics table if it doesn't exist
+db.run(`
+CREATE TABLE IF NOT EXISTS demographics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    firstName TEXT,
+    lastName TEXT,
+    age INTEGER,
+    email TEXT,
+    gender TEXT,
+    city TEXT
+)
+`);
+
+// Middleware
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files
+app.use(express.static(path.join(__dirname, "public")));
+
+// Route for homepage
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "demographics.html"));
+});
 
 // Start server
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running at http://localhost:${PORT}`);
 });
 
-app.post('/login', (req, res) => {
-    const { username, password } = req.body;
+//Create (POST) API endpoint
+app.post('/api/demographics', (req, res) => {
+    const { firstName, lastName, age, email, gender, city } = req.body;
+    const query = ` INSERT INTO demographics (firstName, lastName, age, email, gender, city) VALUES (?, ?, ?, ?, ?, ?) `;
+    db.run(query, [firstName, lastName, age, email, gender, city], function (err) { if (err) return res.status(500).json({ error: err.message }); res.json({ id: this.lastID });
+    });
+});
 
-    // Hardcoded user credentials
-    const validUsername = 'admin';
-    const validPassword = '12345';
+//Read endpoint
+app.get('/api/demographics', (req, res) => {
+    db.all('SELECT * FROM demographics', (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
 
-    // Validate credentials
-    if (username === validUsername && password === validPassword) {
-        res.json({ success: true });
-    } else {
-        res.json({ success: false });
-    }
+//Update endpoint
+app.put('/api/demographics/:id', (req, res) => {
+const { id } = req.params;
+const { firstName, lastName, age, email, gender, city } = req.body;
+const query = `
+UPDATE demographics SET firstName = ?, lastName = ?, age = ?, email = ?, gender = ?, city = ?
+WHERE id = ?
+`;
+db.run(query, [firstName, lastName, age, email, gender, city, id], function (err) { if (err) return res.status(500).json({ error: err.message }); res.json({ message: 'Record updated successfully' });
+});
+});
+
+//Delete endpoint
+app.delete('/api/demographics/:id', (req, res) => {
+const { id } = req.params;
+db.run('DELETE FROM demographics WHERE id = ?', id, function (err) {
+if (err) return res.status(500).json({ error: err.message });
+res.json({ message: 'Record deleted successfully' });
+});
 });
